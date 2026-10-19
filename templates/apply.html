@@ -1,0 +1,47 @@
+{% extends 'base.html' %}{% block content %}<section class="page-hero"><div
+        class="container"><span class="eyebrow">Your pass, your
+            pace</span><h1>Apply for a bus pass.</h1><p>Share a few details to
+            create your application. You can review it on your dashboard
+            afterwards.</p></div></section><section
+    class="section form-page"><div class="container form-page-grid"><aside
+            class="form-info"><div class="info-icon">✦</div><h2>Before you
+                begin</h2><p>Choose the category that best fits you and add the
+                route you travel most often.</p><ul class="check-list"><li>Keep
+                    your route details handy.</li><li>Select a start date from
+                    today onwards.</li><li>Your application will show as pending
+                    in this demo.</li></ul><div class="info-note">No payment or
+                official pass is issued by this educational
+                demo.</div></aside><div class="form-card wide-card"><div
+                class="form-heading"><h2>Pass details</h2><p>All fields are
+                    required.</p></div><form method="post"
+                action="{{ url_for('apply_pass') }}" class="form-stack"><input
+                    type="hidden" name="csrf_token"
+                    value="{{ csrf_token }}"><div class="field"><label
+                        for="pass_type">Pass category</label><select
+                        id="pass_type" name="pass_type" required><option value
+                            selected disabled>Select a category</option><option
+                            value="Student">Student</option><option
+                            value="Regular">Regular</option><option
+                            value="Senior">Senior
+                            citizen</option></select></div><div
+                    class="field"><label for="route">Route or usual
+                        journey</label><input id="route" name="route"
+                        type="text" required maxlength="120"
+                        placeholder="e.g. Main Market to Central Station"><small>Use
+                        a simple description of your usual
+                        journey.</small></div><div class="field-row"><div
+                        class="field"><label for="duration">Pass
+                            duration</label><select id="duration"
+                            name="duration" required><option value selected
+                                disabled>Select duration</option><option
+                                value="Monthly">Monthly</option><option
+                                value="Quarterly">Quarterly</option></select></div><div
+                        class="field"><label for="start_date">Preferred start
+                            date</label><input id="start_date" name="start_date"
+                            type="date" min="{{ today }}" value="{{ today }}"
+                            required></div></div><div class="form-actions"><a
+                        class="btn btn-secondary"
+                        href="{{ url_for('dashboard') }}">Cancel</a><button
+                        class="btn btn-primary" type="submit">Submit application
+                        →</button></div></form></div></div></section>{% endblock
+%}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}{% block content %}<section class="page-hero"><div
+        class="container page-hero-row"><div><span class="eyebrow">Your CityPass
+                space</span><h1>Hello, {{
+                session.get('user_name','traveller').split()[0]
+                }}.</h1><p>Everything about your bus pass applications, in one
+                place.</p></div><a class="btn btn-primary"
+            href="{{ url_for('apply_pass') }}">Apply for a pass
+            <span>→</span></a></div></section><section
+    class="section dashboard-section"><div class="container"><div
+            class="dashboard-heading"><div><h2>Your applications</h2><p
+                    class="muted">Review the details and status of each
+                    application.</p></div><span class="count-pill">{{
+                passes|length }} {{ 'application' if passes|length == 1 else
+                'applications' }}</span></div>{% if passes %}<div
+            class="application-list">{% for item in passes %}<article
+                class="application-card"><div class="application-icon"
+                    aria-hidden="true">↗</div><div class="application-main"><div
+                        class="application-top"><span class="reference">{{
+                            item['reference'] }}</span><span
+                            class="status status-pending">{{ item['status']
+                            }}</span></div><h3>{{ item['pass_type'] }}
+                        pass</h3><p>{{ item['route'] }} · {{ item['duration']
+                        }}</p><span class="application-date">Starts {{
+                        item['start_date'] }}</span></div><a class="text-link"
+                    href="{{ url_for('pass_detail',pass_id=item['id']) }}">View
+                    details →</a></article>{% endfor %}</div>{% else %}<div
+            class="empty-state"><div class="empty-icon"
+                aria-hidden="true">↗</div><h3>Your next journey starts
+                here.</h3><p>You haven’t submitted a bus pass application yet.
+                When you do, it’ll appear here.</p><a class="btn btn-primary"
+                href="{{ url_for('apply_pass') }}">Apply for your first pass
+                →</a></div>{% endif %}<div class="help-banner"><div
+                class="help-icon">i</div><div><strong>Need a
+                    hand?</strong><p>This demo stores applications locally.
+                    Contact <a
+                        href="mailto:hello@citypass.example">hello@citypass.example</a>.</p></div></div></div></section>{%
+endblock %}

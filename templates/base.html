@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head>
+        <meta charset="utf-8"><meta name="viewport"
+            content="width=device-width, initial-scale=1">
+        <meta name="description"
+            content="{{ description|default('Manage city bus passes simply with CityPass.') }}"><meta
+            name="theme-color" content="#f7fbff">
+        <title>{{ title|default('CityPass — Simple Bus Passes') }}</title><link
+            rel="icon" type="image/svg+xml"
+            href="{{ url_for('static',filename='images/favicon.svg') }}">
+        <link rel="stylesheet"
+            href="{{ url_for('static',filename='css/style.css') }}"><script
+            src="{{ url_for('static',filename='js/main.js') }}"
+            defer></script></head><body>
+        <a class="skip-link" href="#main-content">Skip to content</a>
+        <header class="site-header"><div class="container nav-wrap"><a
+                    class="brand" href="{{ url_for('home') }}"
+                    aria-label="CityPass home"><span class="brand-mark"
+                        aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4"
+                                y="5" width="24" height="22" rx="6"
+                                fill="currentColor" /><path
+                                d="M10 11h12M10 15h12" stroke="#fff"
+                                stroke-width="2"
+                                stroke-linecap="round" /><circle cx="11" cy="24"
+                                r="2" fill="#fff" /><circle cx="21" cy="24"
+                                r="2" fill="#fff" /></svg></span><span>City<span
+                            class="brand-accent">Pass</span></span></a>
+                <button class="menu-toggle" type="button" aria-expanded="false"
+                    aria-controls="primary-nav"
+                    aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+                <nav class="primary-nav" id="primary-nav"
+                    aria-label="Main navigation"><a href="{{ url_for('home') }}"
+                        class="{% if request.endpoint=='home' %}active{% endif %}">Home</a>{%
+                    if session.get('user_id') %}<a
+                        href="{{ url_for('dashboard') }}">My dashboard</a><a
+                        href="{{ url_for('apply_pass') }}" class="nav-cta">Apply
+                        for a pass</a><form class="nav-logout" method="post"
+                        action="{{ url_for('logout') }}"><input type="hidden"
+                            name="csrf_token" value="{{ csrf_token }}"><button
+                            class="nav-link-button" type="submit">Sign
+                            out</button></form>{% else %}<a
+                        href="{{ url_for('login') }}">Sign in</a><a
+                        href="{{ url_for('register') }}" class="nav-cta">Create
+                        account</a>{% endif %}</nav></div></header>
+        <main id="main-content"><div class="container flash-container"
+                aria-live="polite">{% with
+                messages=get_flashed_messages(with_categories=true) %}{% if
+                messages %}{% for category,message in messages %}<div
+                    class="flash flash-{{ category }}" role="status"><span>{{
+                        message }}</span><button class="flash-close"
+                        type="button"
+                        aria-label="Dismiss message">×</button></div>{% endfor
+                %}{% endif %}{% endwith %}</div>{% block content %}{% endblock
+            %}</main>
+        <footer class="site-footer"><div class="container footer-grid"><div
+                    class="footer-about"><a class="brand footer-brand"
+                        href="{{ url_for('home') }}"><span class="brand-mark"
+                            aria-hidden="true"><svg viewBox="0 0 32 32"><rect
+                                    x="4" y="5" width="24" height="22" rx="6"
+                                    fill="currentColor" /><path
+                                    d="M10 11h12M10 15h12" stroke="#fff"
+                                    stroke-width="2"
+                                    stroke-linecap="round" /><circle cx="11"
+                                    cy="24" r="2" fill="#fff" /><circle cx="21"
+                                    cy="24" r="2"
+                                    fill="#fff" /></svg></span><span>City<span
+                                class="brand-accent">Pass</span></span></a><p>Everyday
+                        journeys, made a little simpler.</p></div><div><h2
+                        class="footer-heading">Explore</h2><a
+                        href="{{ url_for('home') }}#how-it-works">How it
+                        works</a>{% if session.get('user_id') %}<a
+                        href="{{ url_for('dashboard') }}">My dashboard</a><a
+                        href="{{ url_for('apply_pass') }}">Apply for a
+                        pass</a>{% else %}<a
+                        href="{{ url_for('register') }}">Create an account</a><a
+                        href="{{ url_for('login') }}">Sign in</a>{% endif
+                    %}</div><div><h2 class="footer-heading">Need help?</h2><a
+                        href="tel:+919876543210">+91 98765 43210</a><a
+                        href="mailto:hello@citypass.example">hello@citypass.example</a><span
+                        class="footer-note">Demo contact
+                        details</span></div></div><div
+                class="container footer-bottom"><span>© <span
+                        id="copyright-year">{{ current_year }}</span> CityPass.
+                    All rights reserved.</span><span>Built for easier everyday
+                    travel.</span></div></footer></body></html>

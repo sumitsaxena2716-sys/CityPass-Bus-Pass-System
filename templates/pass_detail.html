@@ -1,0 +1,30 @@
+{% extends 'base.html' %}{% block content %}<section class="page-hero"><div
+        class="container page-hero-row"><div><span class="eyebrow">Application
+                details</span><h1>Your pass application.</h1><p>Reference {{
+                item['reference'] }}</p></div><a class="btn btn-secondary"
+            href="{{ url_for('dashboard') }}">← Back to
+            dashboard</a></div></section><section class="section"><div
+        class="container detail-wrap"><article class="detail-card"><div
+                class="detail-status-row"><span class="status status-pending">{{
+                    item['status'] }}</span><span class="muted">Submitted {{
+                    item['created_at'][:10] }}</span></div><h2>{{
+                item['pass_type'] }} bus pass</h2><p class="muted">Your
+                application has been recorded in this local demo.</p><div
+                class="detail-grid"><div><span class="detail-label">Application
+                        reference</span><strong>{{ item['reference']
+                        }}</strong></div><div><span class="detail-label">Pass
+                        category</span><strong>{{ item['pass_type']
+                        }}</strong></div><div><span
+                        class="detail-label">Route</span><strong>{{
+                        item['route'] }}</strong></div><div><span
+                        class="detail-label">Duration</span><strong>{{
+                        item['duration'] }}</strong></div><div><span
+                        class="detail-label">Preferred start</span><strong>{{
+                        item['start_date'] }}</strong></div><div><span
+                        class="detail-label">Current status</span><strong>{{
+                        item['status'] }}</strong></div></div><div
+                class="info-note">This is not an official bus pass. The demo
+                does not issue passes or connect to a transport
+                authority.</div><a class="btn btn-primary"
+                href="{{ url_for('dashboard') }}">Return to
+                dashboard</a></article></div></section>{% endblock %}
