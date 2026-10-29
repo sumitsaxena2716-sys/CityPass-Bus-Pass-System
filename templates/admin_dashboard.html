@@ -1,0 +1,98 @@
+{% extends 'base.html' %}{% block content %}
+<section class="page-hero">
+  <div class="container page-hero-row">
+    <div>
+      <span class="eyebrow">Administration</span>
+      <h1>Admin dashboard</h1>
+      <p>Manage accounts, roles and bus pass applications.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('admin_users') }}"
+      >Manage accounts →</a
+    >
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <div class="steps-grid admin-stats">
+      <article class="step-card">
+        <span class="eyebrow">User accounts</span>
+        <h2>{{ stats.users }}</h2>
+        <p>Standard user accounts</p>
+      </article>
+      <article class="step-card">
+        <span class="eyebrow">Managers</span>
+        <h2>{{ stats.managers }}</h2>
+        <p>Review and decision access</p>
+      </article>
+      <article class="step-card">
+        <span class="eyebrow">Applications</span>
+        <h2>{{ stats.applications }}</h2>
+        <p>Total bus pass applications</p>
+      </article>
+      <article class="step-card">
+        <span class="eyebrow">Pending review</span>
+        <h2>{{ stats.pending }}</h2>
+        <p>Waiting for manager action</p>
+      </article>
+      <article class="step-card">
+        <span class="eyebrow">Expired passes</span>
+        <h2>{{ stats.expired }}</h2>
+        <p>Past their expiry date</p>
+      </article>
+    </div>
+    <div class="dashboard-heading">
+      <div>
+        <h2>Recent applications</h2>
+        <p class="muted">Latest applications across all accounts.</p>
+      </div>
+      <a class="text-link" href="{{ url_for('admin_passes') }}">View all →</a>
+    </div>
+    {% if recent %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Applicant</th>
+            <th>Pass</th>
+            <th>Route</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent %}
+          <tr>
+            <td>{{ item['reference'] }}</td>
+            <td>
+              {{ item['applicant_name'] }}<small
+                >{{ item['applicant_email'] }}</small
+              >
+            </td>
+            <td>{{ item['pass_type'] }} · {{ item['duration'] }}</td>
+            <td>{{ item['route'] }}</td>
+            <td>
+              <span class="status status-{{ item['status']|lower }}"
+                >{{ item['status'] }}</span
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <h3>No applications yet</h3>
+      <p>New user applications will appear here.</p>
+    </div>
+    {% endif %}
+    <div class="hero-actions admin-actions">
+      <a class="btn btn-secondary" href="{{ url_for('admin_users') }}"
+        >Manage users and managers</a
+      ><a class="btn btn-secondary" href="{{ url_for('admin_passes') }}"
+        >View all applications</a
+      >
+    </div>
+  </div>
+</section>
+{% endblock %}
