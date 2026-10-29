@@ -1,0 +1,28 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+instance/
+*.sqlite-wal
+*.sqlite-shm
+logs/
+
+citypass.db
+
+# Database files and backups
+*.db
+*.sqlite
+*.sqlite3
+
+# Local archives
+*.zip
+
+# Environment secrets
+.env.*
+
+# Temporary test artifacts
+test_expiry.py
