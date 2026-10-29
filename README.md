@@ -27,7 +27,7 @@ CityPass is a Flask + SQLite application for bus-pass requests with three role-b
 - Parameterized SQLite statements, server-side role checks, CSRF tokens on POST forms, password hashing, session cookie settings, and common security headers.
 - Non-destructive database migrations add role and review fields to existing CityPass databases.
 - Health endpoint at `/health`, custom error pages, responsive layout, and local static assets.
-- 26 automated tests in `tests/test_app.py`.
+- 66 automated tests across the test suite.
 
 ## Requirements
 - Python 3.10 or newer.
@@ -62,11 +62,39 @@ Enter the administrator's name, email, and a unique password of at least 10 char
 
 ## Run tests
 
+Activate the project's virtual environment, then run the full test suite with coverage:
+
 ```powershell
-python -m unittest discover -s tests -v
+python -m pytest -q --cov=app --cov-report=term-missing
 ```
 
-Tests use a temporary SQLite database and do not change the application's normal database. They cover registration, hashed passwords, login, CSRF, role-based access, application creation, cross-user access denial, manager decisions, admin role/status management, redirects, headers, and error routes.
+Run the dependency vulnerability audit:
+
+```powershell
+python -m pip_audit -r requirements.txt
+```
+
+Or run both checks, plus Git whitespace/status checks, using the included PowerShell script:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\run_all_checks.ps1
+```
+
+Tests use a temporary SQLite database and do not change the application's normal database. They cover registration, hashed passwords, login, CSRF, role-based access, application creation, cross-user access denial, manager decisions, admin role/status management, redirects, headers, error routes, and the admin CLI command.
+
+### Latest tested results
+
+| Check | Result |
+|---|---:|
+| Automated tests | **66 passed, 0 failed** |
+| Application code coverage | **99%** |
+| Uncovered application statements | **1** (reported at `app.py` line 459) |
+| Dependency audit (`pip-audit`) | **No known vulnerabilities found** |
+| Git whitespace checks | **Passed** |
+| Python version used for testing | **3.12.10** |
+
+These results describe the test run in the development environment; they are not a guarantee that the application is free of security vulnerabilities. Dependency auditing only checks for known issues in audited packages, and code coverage measures which statements were executed—not whether every behavior is correct or secure.
 
 ## Optional configuration
 
