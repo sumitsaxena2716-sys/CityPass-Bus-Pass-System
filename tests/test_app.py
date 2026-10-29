@@ -107,6 +107,21 @@ class CityPassTests(unittest.TestCase):
     def test_25_unknown_route_uses_custom_404(self): self.assertEqual(self.client.get('/not-a-real-route').status_code,404)
     def test_26_logout_clears_session(self):
         self.login('user@example.com','user-password-123'); self.client.post('/logout',data={'csrf_token':self.csrf()}); self.assertEqual(self.client.get('/dashboard').status_code,302)
+    
+    def test_27_sql_injection_cannot_bypass_login(self):
+        response = self.login("' OR 1=1 --", "user-password-123")
+        self.assertNotEqual(response.status_code, 302)
+        self.assertIn(b'incorrect', response.data)
+
+    def test_28_manager_cannot_open_admin_dashboard(self):
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.get('/admin')
+        self.assertEqual(response.status_code, 403)
+
+    def test_29_user_cannot_open_manager_dashboard(self):
+        self.login('user@example.com', 'user-password-123')
+        response = self.client.get('/manager')
+        self.assertEqual(response.status_code, 403)
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)
