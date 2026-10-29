@@ -78,6 +78,40 @@ class CityPassTests(unittest.TestCase):
         self.login('user@example.com','user-password-123'); r=self.client.post('/apply',data={'csrf_token':self.csrf(),'pass_type':'Fake','route':'route','duration':'Monthly','start_date':date.today().isoformat()}); self.assertIn(b'valid pass category',r.data)
     def test_14_user_cannot_read_another_users_pass(self):
         pass_id=self.add_pass(self.manager_id); self.login('user@example.com','user-password-123'); self.assertEqual(self.client.get(f'/pass/{pass_id}').status_code,404)
+    
+    def test_invalid_route_is_rejected(self):
+        self.login('user@example.com', 'user-password-123')
+        response = self.client.post('/apply', data={
+            'csrf_token': self.csrf(),
+            'pass_type': 'Student',
+            'route': '   ',
+            'duration': 'Monthly',
+            'start_date': (date.today() + timedelta(days=1)).isoformat()
+        })
+        self.assertIn(b'valid route', response.data)
+
+    def test_invalid_duration_is_rejected(self):
+        self.login('user@example.com', 'user-password-123')
+        response = self.client.post('/apply', data={
+            'csrf_token': self.csrf(),
+            'pass_type': 'Student',
+            'route': 'Central to Market',
+            'duration': 'Yearly',
+            'start_date': (date.today() + timedelta(days=1)).isoformat()
+        })
+        self.assertIn(b'valid pass duration', response.data)
+
+    def test_past_start_date_is_rejected(self):
+        self.login('user@example.com', 'user-password-123')
+        response = self.client.post('/apply', data={
+            'csrf_token': self.csrf(),
+            'pass_type': 'Student',
+            'route': 'Central to Market',
+            'duration': 'Monthly',
+            'start_date': (date.today() - timedelta(days=1)).isoformat()
+        })
+        self.assertIn(b'valid start date', response.data)
+
     def test_15_user_cannot_open_admin(self):
         self.login('user@example.com','user-password-123'); self.assertEqual(self.client.get('/admin').status_code,403)
     def test_16_manager_can_open_dashboard(self):
@@ -122,6 +156,177 @@ class CityPassTests(unittest.TestCase):
         self.login('user@example.com', 'user-password-123')
         response = self.client.get('/manager')
         self.assertEqual(response.status_code, 403)
+    
+    # Additional registration validation tests
+
+    def test_registration_rejects_invalid_email(self):
+        self.client.get('/register')
+        response = self.client.post('/register', data={
+            'csrf_token': self.csrf(),
+            'name': 'New Person',
+            'email': 'invalid-email',
+            'password': 'long-password-123',
+            'confirm_password': 'long-password-123'
+        })
+        self.assertIn(b'valid email', response.data)
+
+    def test_registration_rejects_password_mismatch(self):
+        self.client.get('/register')
+        response = self.client.post('/register', data={
+            'csrf_token': self.csrf(),
+            'name': 'New Person',
+            'email': 'newperson@example.com',
+            'password': 'long-password-123',
+            'confirm_password': 'different-password-123'
+        })
+        self.assertIn(b'Passwords do not match', response.data)
+
+    def test_registration_rejects_empty_name(self):
+        self.client.get('/register')
+        response = self.client.post('/register', data={
+            'csrf_token': self.csrf(),
+            'name': '   ',
+            'email': 'newperson@example.com',
+            'password': 'long-password-123',
+            'confirm_password': 'long-password-123'
+        })
+        self.assertIn(b'valid name', response.data)
+
+    # Additional login and session security tests
+
+    def test_backslash_open_redirect_is_rejected(self):
+        response = self.login(
+            'user@example.com',
+            'user-password-123'
+        )
+        # Re-login with a suspicious redirect target.
+        self.client.get('/login')
+        response = self.client.post(
+            '/login?next=%2F%5Cevil.example',
+            data={
+                'csrf_token': self.csrf(),
+                'email': 'user@example.com',
+                'password': 'user-password-123'
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, '/dashboard')
+
+    # Additional manager request validation tests
+
+    def test_manager_rejects_non_numeric_pass_id(self):
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.post('/manager/passes', data={
+            'csrf_token': self.csrf(),
+            'pass_id': 'invalid',
+            'status': 'Approved'
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_manager_rejects_missing_pass(self):
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.post('/manager/passes', data={
+            'csrf_token': self.csrf(),
+            'pass_id': '999999',
+            'status': 'Approved'
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_manager_rejects_invalid_decision_status(self):
+        pass_id = self.add_pass()
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.post('/manager/passes', data={
+            'csrf_token': self.csrf(),
+            'pass_id': str(pass_id),
+            'status': 'Unknown'
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT status FROM passes WHERE id=?',
+                (pass_id,)
+            ).fetchone()
+            self.assertEqual(row['status'], 'Pending')
+
+    def test_manager_rejects_overlong_decision_note(self):
+        pass_id = self.add_pass()
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.post('/manager/passes', data={
+            'csrf_token': self.csrf(),
+            'pass_id': str(pass_id),
+            'status': 'Approved',
+            'decision_note': 'x' * 501
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT status FROM passes WHERE id=?',
+                (pass_id,)
+            ).fetchone()
+            self.assertEqual(row['status'], 'Pending')
+
+    # Additional administrator input validation tests
+
+    def test_admin_rejects_non_numeric_user_id(self):
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': 'invalid',
+            'action': 'role',
+            'role': 'manager'
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_rejects_missing_user(self):
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': '999999',
+            'action': 'role',
+            'role': 'manager'
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_admin_rejects_invalid_role(self):
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': str(self.user_id),
+            'action': 'role',
+            'role': 'superadmin'
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT role FROM users WHERE id=?',
+                (self.user_id,)
+            ).fetchone()
+            self.assertEqual(row['role'], 'user')
+
+    def test_admin_rejects_invalid_account_status(self):
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': str(self.user_id),
+            'action': 'status',
+            'active': 'invalid'
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT is_active FROM users WHERE id=?',
+                (self.user_id,)
+            ).fetchone()
+            self.assertEqual(row['is_active'], 1)
+
+    def test_admin_rejects_unknown_account_action(self):
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': str(self.user_id),
+            'action': 'delete',
+        })
+        self.assertEqual(response.status_code, 400)
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)
