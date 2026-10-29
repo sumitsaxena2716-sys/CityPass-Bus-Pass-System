@@ -329,4 +329,153 @@ class CityPassTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
 
 
+    # Targeted tests for previously uncovered branches and error paths.
+
+    def test_pass_expiry_rejects_unknown_duration(self):
+        with self.assertRaises(ValueError):
+            cityapp.pass_expiry_date(date.today().isoformat(), 'Yearly')
+
+    def test_valid_date_handles_invalid_inputs(self):
+        self.assertFalse(cityapp.valid_date('not-a-date'))
+        self.assertFalse(cityapp.valid_date(None))
+
+    def test_safe_next_rejects_unsafe_targets(self):
+        self.assertIsNone(cityapp.safe_next('//evil.example'))
+        self.assertIsNone(cityapp.safe_next(r'/\\evil.example'))
+        self.assertEqual(cityapp.safe_next('/dashboard?tab=passes'), '/dashboard?tab=passes')
+        self.assertIsNone(cityapp.safe_next('https://evil.example'))
+
+    def test_role_home_maps_each_supported_role(self):
+        self.assertEqual(cityapp.role_home('admin'), 'admin_dashboard')
+        self.assertEqual(cityapp.role_home('manager'), 'manager_dashboard')
+        self.assertEqual(cityapp.role_home('user'), 'dashboard')
+        self.assertEqual(cityapp.role_home('unexpected'), 'dashboard')
+
+    def test_disabled_logged_in_account_is_logged_out(self):
+        with cityapp.app.app_context():
+            cityapp.db().execute('UPDATE users SET is_active=0 WHERE id=?', (self.user_id,))
+            cityapp.db().commit()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = self.user_id
+            sess['user_name'] = 'User One'
+        response = self.client.get('/dashboard')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, '/login')
+        with self.client.session_transaction() as sess:
+            self.assertNotIn('user_id', sess)
+
+    def test_user_can_view_own_pass_detail_and_dashboard(self):
+        pass_id = self.add_pass()
+        self.login('user@example.com', 'user-password-123')
+        self.assertEqual(self.client.get('/dashboard').status_code, 200)
+        self.assertEqual(self.client.get(f'/pass/{pass_id}').status_code, 200)
+
+    def test_admin_can_view_user_and_pass_management_pages(self):
+        self.add_pass()
+        self.login('admin@example.com', 'admin-password-123')
+        self.assertEqual(self.client.get('/admin/users').status_code, 200)
+        self.assertEqual(self.client.get('/admin/passes').status_code, 200)
+
+    def test_admin_cannot_change_another_admin_account(self):
+        second_admin = self.create_account(
+            'Second Admin', 'second-admin@example.com', 'admin-password-456', 'admin'
+        )
+        self.login('admin@example.com', 'admin-password-123')
+        response = self.client.post('/admin/users', data={
+            'csrf_token': self.csrf(),
+            'user_id': str(second_admin),
+            'action': 'role',
+            'role': 'manager',
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT role FROM users WHERE id=?', (second_admin,)
+            ).fetchone()
+        self.assertEqual(row['role'], 'admin')
+
+    def test_manager_approval_handles_invalid_legacy_pass_dates(self):
+        pass_id = self.add_pass()
+        with cityapp.app.app_context():
+            cityapp.db().execute(
+                "UPDATE passes SET start_date='invalid-date', duration='Monthly' WHERE id=?",
+                (pass_id,),
+            )
+            cityapp.db().commit()
+        self.login('manager@example.com', 'manager-password-123')
+        response = self.client.post('/manager/passes', data={
+            'csrf_token': self.csrf(),
+            'pass_id': str(pass_id),
+            'status': 'Approved',
+        })
+        self.assertEqual(response.status_code, 302)
+        with cityapp.app.app_context():
+            row = cityapp.db().execute(
+                'SELECT status, expires_at FROM passes WHERE id=?', (pass_id,)
+            ).fetchone()
+        self.assertEqual(row['status'], 'Pending')
+        self.assertIsNone(row['expires_at'])
+
+    def test_oversized_request_uses_custom_413_page(self):
+        self.client.get('/login')
+        response = self.client.post(
+            '/login',
+            data={
+                'csrf_token': self.csrf(),
+                'email': 'user@example.com',
+                'password': 'x' * (2 * 1024 * 1024 + 100),
+            },
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertIn(b'Request too large', response.data)
+
+    def test_legacy_database_migration_backfills_only_valid_approved_passes(self):
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+
+        fd, legacy_path = tempfile.mkstemp(prefix='citypass-legacy-', suffix='.db')
+        os.close(fd)
+        original_db_path = cityapp.DB_PATH
+        try:
+            cityapp.DB_PATH = Path(legacy_path)
+            conn = sqlite3.connect(legacy_path)
+            conn.executescript("""
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                CREATE TABLE passes (
+                    id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+                    pass_type TEXT NOT NULL, route TEXT NOT NULL, duration TEXT NOT NULL,
+                    start_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Pending',
+                    reference TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL
+                );
+                INSERT INTO users VALUES (1, 'Legacy User', 'legacy@example.com', 'hash', '2020-01-01');
+                INSERT INTO passes VALUES (1, 1, 'Student', 'Route A', 'Monthly', '2026-01-15', 'Approved', 'LEGACY-VALID', '2026-01-01');
+                INSERT INTO passes VALUES (2, 1, 'Student', 'Route B', 'Unknown', '2026-01-15', 'Approved', 'LEGACY-INVALID', '2026-01-01');
+                INSERT INTO passes VALUES (3, 1, 'Student', 'Route C', 'Monthly', 'invalid-date', 'Approved', 'LEGACY-BAD-DATE', '2026-01-01');
+            """)
+            conn.commit()
+            conn.close()
+
+            cityapp.init_db()
+
+            conn = sqlite3.connect(legacy_path)
+            rows = dict(conn.execute('SELECT reference, expires_at FROM passes'))
+            columns = {row[1] for row in conn.execute('PRAGMA table_info(users)')}
+            conn.close()
+            self.assertEqual(rows['LEGACY-VALID'], '2026-02-14')
+            self.assertIsNone(rows['LEGACY-INVALID'])
+            self.assertIsNone(rows['LEGACY-BAD-DATE'])
+            self.assertIn('role', columns)
+            self.assertIn('is_active', columns)
+        finally:
+            cityapp.DB_PATH = original_db_path
+            try:
+                os.remove(legacy_path)
+            except OSError:
+                pass
+
+
 if __name__ == '__main__': unittest.main(verbosity=2)
